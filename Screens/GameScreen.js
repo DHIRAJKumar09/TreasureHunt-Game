@@ -1,103 +1,82 @@
-// /screens/GameScreen.js
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
-import { generateMap } from '../Utils/generateMap';
+
+const BOMB_EMOJI = '💣';
 
 const GameScreen = ({ route, navigation }) => {
-  const { difficulty } = route.params;
-  const size = difficulty === 'easy' ? 5 : difficulty === 'medium' ? 7 : 10;
-  const graph = generateMap(size);
-
-  const [playerPosition, setPlayerPosition] = useState([0, 0]);
+  const { gridSize } = route.params; 
+  const [grid, setGrid] = useState([]);
+  const [revealedGrid, setRevealedGrid] = useState([]);
   const [score, setScore] = useState(0);
-  const [treasuresFound, setTreasuresFound] = useState(0);
+  const [gameOver, setGameOver] = useState(false);
 
-  const movePlayer = (dx, dy) => {
-    const [x, y] = playerPosition;
-    const newX = x + dx;
-    const newY = y + dy;
+  useEffect(() => {
+    initializeGrid();
+  }, []);
 
-    const neighbors = graph.getNeighbors([x, y]) || [];
-
-    if (neighbors.some((neighbor) => neighbor[0] === newX && neighbor[1] === newY)) {
-      if (graph.hasObstacle([newX, newY])) {
-        Alert.alert('Obstacle!', 'You hit an obstacle! -50 points');
-        setScore(score - 50);
-        return;
+  const initializeGrid = () => {
+    const newGrid = [];
+    const revealed = [];
+    for (let i = 0; i < gridSize; i++) {
+      const row = [];
+      const revealedRow = [];
+      for (let j = 0; j < gridSize; j++) {
+        const isBomb = Math.random() < 0.2; 
+        row.push(isBomb ? BOMB_EMOJI : Math.floor(Math.random() * 100) + 1); 
+        revealedRow.push(false); 
       }
+      newGrid.push(row);
+      revealed.push(revealedRow);
+    }
+    setGrid(newGrid);
+    setRevealedGrid(revealed);
+  };
 
-      setPlayerPosition([newX, newY]);
+  const handlePress = (rowIndex, colIndex) => {
+    if (gameOver || revealedGrid[rowIndex][colIndex]) return;
 
-      if (graph.hasTreasure([newX, newY])) {
-        setScore(score + 100);
-        setTreasuresFound(treasuresFound + 1);
-        graph.treasures.delete([newX, newY]);
+    const cell = grid[rowIndex][colIndex];
+    const newRevealedGrid = [...revealedGrid];
+    newRevealedGrid[rowIndex][colIndex] = true;
+    setRevealedGrid(newRevealedGrid);
 
-        if (treasuresFound + 1 === graph.treasures.size) {
-          Alert.alert('You Win!', `Your final score is ${score + 100}`);
-          navigation.navigate('GameOver', { score: score + 100 });
-        }
-      }
+    if (cell === BOMB_EMOJI) {
+      setGameOver(true);
+      Alert.alert('Game Over!', `You hit a bomb! Your final score is ${score}`, [
+        { text: 'Play Again', onPress: () => navigation.navigate('Difficulty') },
+      ]);
+    } else {
+      setScore(score + cell);
     }
   };
 
   const renderGrid = () => {
-    const grid = [];
-    for (let row = 0; row < size; row++) {
-      const currentRow = [];
-      for (let col = 0; col < size; col++) {
-        const isPlayer = playerPosition[0] === row && playerPosition[1] === col;
-        const hasTreasure = graph.hasTreasure([row, col]);
-        const hasObstacle = graph.hasObstacle([row, col]);
-  
-        currentRow.push(
-          <View
-            key={`${row}-${col}`}
+    return grid.map((row, rowIndex) => (
+      <View key={rowIndex} style={styles.row}>
+        {row.map((cell, colIndex) => (
+          <TouchableOpacity
+            key={`${rowIndex}-${colIndex}`}
             style={[
               styles.cell,
-              isPlayer && styles.player,
-              hasTreasure && styles.treasure,
-              hasObstacle && styles.obstacle,
+              revealedGrid[rowIndex][colIndex] ? styles.revealedCell : styles.hiddenCell,
             ]}
-          />
-        );
-      }
-      grid.push(
-        <View key={row} style={styles.row}>
-          {currentRow}
-        </View>
-      );
-    }
-    return grid;
+            onPress={() => handlePress(rowIndex, colIndex)}
+          >
+            {revealedGrid[rowIndex][colIndex] && (
+              <Text style={styles.cellText}>
+                {cell === BOMB_EMOJI ? BOMB_EMOJI : cell}
+              </Text>
+            )}
+          </TouchableOpacity>
+        ))}
+      </View>
+    ));
   };
-  
 
   return (
     <View style={styles.container}>
-      <Text style={styles.difficultyText}>{difficulty.toUpperCase()} MODE</Text>
-      <Text style={styles.statusText}>Score: {score}</Text>
-      <Text style={styles.statusText}>Treasures Found: {treasuresFound}</Text>
-
-      {/* Render the game grid */}
-      <View style={styles.grid}>{renderGrid()}</View>
-
-      {/* Movement Controls */}
-      <View style={styles.controls}>
-        <TouchableOpacity onPress={() => movePlayer(-1, 0)} style={styles.button}>
-          <Text>Up</Text>
-        </TouchableOpacity>
-        <View style={styles.rowControls}>
-          <TouchableOpacity onPress={() => movePlayer(0, -1)} style={styles.button}>
-            <Text>Left</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => movePlayer(0, 1)} style={styles.button}>
-            <Text>Right</Text>
-          </TouchableOpacity>
-        </View>
-        <TouchableOpacity onPress={() => movePlayer(1, 0)} style={styles.button}>
-          <Text>Down</Text>
-        </TouchableOpacity>
-      </View>
+      <Text style={styles.scoreText}>Score: {score}</Text>
+      <View style={styles.gridContainer}>{renderGrid()}</View>
     </View>
   );
 };
@@ -105,59 +84,41 @@ const GameScreen = ({ route, navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    padding: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
   },
-  difficultyText: {
+  scoreText: {
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 20,
-    color: '#333',
   },
-  statusText: {
-    fontSize: 18,
-    marginVertical: 5,
-  },
-  grid: {
-    marginVertical: 20,
+  gridContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   row: {
     flexDirection: 'row',
   },
   cell: {
-    width: 40,
-    height: 40,
-    margin: 2,
-    backgroundColor: '#ddd',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  player: {
-    backgroundColor: '#007BFF',
-  },
-  treasure: {
-    backgroundColor: '#FFD700',
-  },
-  obstacle: {
-    backgroundColor: '#FF6347',
-  },
-  controls: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  button: {
-    padding: 15,
-    backgroundColor: '#007BFF',
+    width: 60,
+    height: 60,
     margin: 5,
-    borderRadius: 5,
-    width: 100,
-    alignItems: 'center',
-  },
-  rowControls: {
-    flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#ddd',
+    borderRadius: 5,
+  },
+  hiddenCell: {
+    backgroundColor: '#ccc',
+  },
+  revealedCell: {
+    backgroundColor: '#fff',
+  },
+  cellText: {
+    fontSize: 18,
+    fontWeight: 'bold',
   },
 });
 

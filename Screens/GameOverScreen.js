@@ -1,4 +1,3 @@
-// /screens/GameOverScreen.js
 import React from 'react';
 import { View, Text, Button, StyleSheet } from 'react-native';
 
@@ -7,10 +6,18 @@ const GameOverScreen = ({ route, navigation }) => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Game Over</Text>
-      <Text style={styles.score}>Your Score: {score}</Text>
-      <Button title="Play Again" onPress={() => navigation.navigate('Home')} />
-      <Button title="Home" onPress={() => navigation.navigate('Home')} />
+      <Text style={styles.gameOverText}>Game Over!</Text>
+      <Text style={styles.scoreText}>Your Final Score: {score}</Text>
+      
+      <Button 
+        title="Play Again"
+        onPress={() => navigation.navigate('Difficulty')} 
+      />
+      <Button 
+        title="Go to Home"
+        onPress={() => navigation.navigate('Home')} 
+        style={styles.button}
+      />
     </View>
   );
 };
@@ -21,14 +28,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  title: {
-    fontSize: 32,
+  gameOverText: {
+    fontSize: 36,
     fontWeight: 'bold',
+    color: 'red',
     marginBottom: 20,
   },
-  score: {
+  scoreText: {
     fontSize: 24,
-    marginBottom: 20,
+    marginBottom: 40,
+  },
+  button: {
+    marginTop: 10,
   },
 });
 
